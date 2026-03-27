@@ -48,7 +48,14 @@
       font-size:20px;
     }
 
-    /* Scroll wrapper for wide tables on mobile */
+    .hint{
+      margin:6px 0 0;
+      text-align:center;
+      color:#2b2b2b;
+      font-size:13px;
+      opacity:0.85;
+    }
+
     .table-wrapper{
       overflow-x:auto;
       -webkit-overflow-scrolling:touch;
@@ -60,14 +67,14 @@
       border-collapse:collapse;
       margin-top:8px;
       color:var(--textDark);
-      min-width: 520px; /* allows horizontal scroll on phones */
+      min-width: 520px;
       background:white;
     }
 
     th{
       background:var(--green2);
       color:white;
-      position: sticky; /* nice for mobile scroll */
+      position: sticky;
       top: 0;
       z-index: 1;
     }
@@ -87,8 +94,8 @@
       background:white;
       border:1px solid #ccc;
       border-radius:8px;
-      font-size:16px;          /* prevents iOS zoom */
-      min-height:44px;         /* good touch target */
+      font-size:16px; /* prevents iOS zoom */
+      min-height:44px;
       outline:none;
     }
 
@@ -99,7 +106,6 @@
       accent-color: var(--green2);
     }
 
-    /* Ketupat ranking */
     .rank-grid{
       display:grid;
       grid-template-columns:repeat(4, 1fr);
@@ -123,7 +129,20 @@
       text-align:left;
     }
 
-    /* Main button */
+    /* Feedback / warning text */
+    .warn{
+      margin-top:10px;
+      padding:10px;
+      border-radius:10px;
+      background:#fff3cd;
+      color:#6b4b00;
+      border:1px solid #ffe69c;
+      font-size:14px;
+      display:none;
+      text-align:center;
+    }
+
+    /* Button kept (optional), but auto-calc already works */
     button{
       background:var(--gold);
       border:none;
@@ -140,35 +159,36 @@
       box-shadow:0 4px 12px rgba(0,0,0,0.18);
     }
 
-    /* Ranking colors */
     .gold{ background:var(--gold); color:#000; font-weight:bold; }
     .silver{ background:#dcdcdc; color:#000; font-weight:bold; }
     .bronze{ background:#cd7f32; color:white; font-weight:bold; }
 
-    /* Small helper text */
-    .hint{
-      margin:6px 0 0;
-      text-align:center;
-      color:#2b2b2b;
-      font-size:13px;
-      opacity:0.85;
-    }
-
-    /* MOBILE */
     @media (max-width: 600px){
       body{ padding:10px; }
       h1{ font-size:22px; }
-
       .section{ padding:12px; margin:12px auto; }
       .section h2{ font-size:18px; }
 
       .rank-grid{
-        grid-template-columns:repeat(2, 1fr); /* 2 columns on phone */
+        grid-template-columns:repeat(2, 1fr);
         gap:8px;
       }
 
       td, th{ padding:7px; font-size:13px; }
     }
+	
+	/* Game 2 invalid word feedback */
+	.invalid-word {
+	  border: 2px solid #dc3545 !important;
+	  background: #fff5f5;
+	}
+
+	.valid-word {
+	  border: 2px solid #28a745 !important;
+	  background: #f4fff7;
+	}
+
+
   </style>
 </head>
 
@@ -177,8 +197,9 @@
 
   <div class="section">
     <h2>Game 1 – Perlumbaan Anyam Ketupat</h2>
-    <p class="hint">Choose which table got each rank (Rank 1 = fastest).</p>
+    <p class="hint">Choose which table got each rank (Rank 1 = fastest). No duplicates allowed.</p>
     <div id="ketupatGame" class="rank-grid"></div>
+    <div id="dupWarning" class="warn">⚠️ Duplicate table selected in Game 1. Please ensure each table appears only once.</div>
   </div>
 
   <div class="section">
@@ -197,7 +218,7 @@
 
   <div class="section">
     <h2>Game 3 – Kotak Misteri Raya</h2>
-    <p class="hint">Tick items found. Points will be added automatically in overall calculation.</p>
+    <p class="hint">Tick items found. Points will be added automatically.</p>
     <div class="table-wrapper">
       <table id="mysteryTable">
         <tr>
@@ -212,7 +233,8 @@
     </div>
   </div>
 
-  <button onclick="calculate()">Calculate Result</button>
+  <!-- Optional button (kept for backup); auto-calc already updates live -->
+  <button onclick="calculate()">Recalculate (Optional)</button>
 
   <div class="section">
     <h2>🏆 Overall Ranking</h2>
@@ -246,48 +268,71 @@
       serunding:120
     };
 
+    /* ---------- BUILD UI ---------- */
+
     function createKetupat(){
       const div = document.getElementById("ketupatGame");
 
-      for(let i=1; i<=tables; i++){
+      for(let rank=1; rank<=tables; rank++){
         let card = document.createElement("div");
         card.className = "rank-card";
 
         card.innerHTML = `
-          <label>Rank ${i}</label>
-          <select id="rank_${i}">
-            ${[...Array(tables).keys()].map(x => `
-              <option value="${x+1}">Table ${x+1}</option>
-            `).join("")}
-          </select>
+          <label>Rank ${rank}</label>
+          <select id="rank_${rank}"></select>
         `;
+
         div.appendChild(card);
       }
+
+      // Fill options for all selects
+      for(let rank=1; rank<=tables; rank++){
+        const sel = document.getElementById(`rank_${rank}`);
+        sel.innerHTML = buildTableOptions();
+        sel.addEventListener("change", () => {
+          enforceUniqueKetupat();  // prevent duplicates
+          calculate();             // auto update
+        });
+      }
+
+      // Ensure unique by default on load
+      enforceUniqueKetupat();
     }
-    createKetupat();
+
+    function buildTableOptions(selectedValue){
+      // selectedValue is optional
+      let html = "";
+      for(let t=1; t<=tables; t++){
+        const selectedAttr = (String(t) === String(selectedValue)) ? "selected" : "";
+        html += `<option value="${t}" ${selectedAttr}>Table ${t}</option>`;
+      }
+      return html;
+    }
 
     function createScrabble(){
       const table = document.getElementById("scrabbleTable");
 
       for(let i=1; i<=tables; i++){
         let row = document.createElement("tr");
-
         row.innerHTML = `
           <td>Table ${i}</td>
-          <td><input id="word_${i}" placeholder="Malay word" /></td>
+          <td><input id="word_${i}" placeholder="Malay word" autocomplete="off" /></td>
           <td id="wordScore_${i}">0</td>
         `;
         table.appendChild(row);
+
+        // Auto-calc as user types
+        const input = row.querySelector(`#word_${i}`);
+        input.addEventListener("input", debounce(calculate, 200));
+        input.addEventListener("change", calculate);
       }
     }
-    createScrabble();
 
     function createMystery(){
       const table = document.getElementById("mysteryTable");
 
       for(let i=1; i<=tables; i++){
         let row = document.createElement("tr");
-
         row.innerHTML = `
           <td>Table ${i}</td>
           <td><input type="checkbox" id="lemang_${i}"></td>
@@ -297,9 +342,19 @@
           <td><input type="checkbox" id="serunding_${i}"></td>
         `;
         table.appendChild(row);
+
+        // Auto-calc on any checkbox toggle
+        row.querySelectorAll("input[type='checkbox']").forEach(cb => {
+          cb.addEventListener("change", calculate);
+        });
       }
     }
+
+    createKetupat();
+    createScrabble();
     createMystery();
+
+    /* ---------- GAME RULES ---------- */
 
     function validLetters(word){
       word = word.toUpperCase();
@@ -309,30 +364,72 @@
       return true;
     }
 
+    /* ---------- DUPLICATE PREVENTION (GAME 1) ---------- */
+
+    function enforceUniqueKetupat(){
+      const selections = [];
+      for(let rank=1; rank<=tables; rank++){
+        selections.push({
+          rank,
+          value: document.getElementById(`rank_${rank}`).value
+        });
+      }
+
+      // Count occurrences
+      const counts = {};
+      selections.forEach(s => counts[s.value] = (counts[s.value] || 0) + 1);
+
+      const hasDup = Object.values(counts).some(c => c > 1);
+      document.getElementById("dupWarning").style.display = hasDup ? "block" : "none";
+
+      // Disable options already taken by other ranks (but keep its own selected option enabled)
+      for(let rank=1; rank<=tables; rank++){
+        const sel = document.getElementById(`rank_${rank}`);
+        const myVal = sel.value;
+
+        // For each option, disable if taken elsewhere
+        [...sel.options].forEach(opt => {
+          const taken = counts[opt.value] >= 1;
+          opt.disabled = (taken && opt.value !== myVal);
+        });
+      }
+    }
+
+    /* ---------- CALCULATION ---------- */
+
     function calculate(){
       let scores = {};
       for(let i=1; i<=tables; i++) scores[i] = 0;
 
-      /* Game 1: Ketupat ranking points (17-rank) */
+      // Game 1 points
       for(let rank=1; rank<=tables; rank++){
-        let tableNo = document.getElementById("rank_"+rank).value;
+        let tableNo = Number(document.getElementById("rank_"+rank).value);
         scores[tableNo] += (17 - rank);
       }
 
-      /* Game 2: Scrabble word score (length if valid) */
-      for(let i=1; i<=tables; i++){
-        let word = document.getElementById("word_"+i).value.toLowerCase().trim();
-        let score = 0;
+	// Game 2 points
+	for(let i=1; i<=tables; i++){
+	  let input = document.getElementById("word_"+i);
+	  let word = input.value.toLowerCase().trim();
+	  let score = 0;
 
-        if(dictionary.includes(word) && validLetters(word)){
-          score = word.length;
-        }
+	  // reset styles first
+	  input.classList.remove("invalid-word", "valid-word");
 
-        document.getElementById("wordScore_"+i).innerText = score;
-        scores[i] += score;
-      }
+	  if(word.length > 0){
+		if(dictionary.includes(word) && validLetters(word)){
+		  score = word.length;
+		  input.classList.add("valid-word");   // ✅ valid → green
+		} else {
+		  input.classList.add("invalid-word"); // ❌ invalid → red
+		}
+	  }
 
-      /* Game 3: Mystery box checkbox points */
+	  document.getElementById("wordScore_"+i).innerText = score;
+	  scores[i] += score;
+	}
+
+      // Game 3 points
       for(let i=1; i<=tables; i++){
         if(document.getElementById("lemang_"+i).checked) scores[i] += mysteryItems.lemang;
         if(document.getElementById("kuih_"+i).checked) scores[i] += mysteryItems.kuih;
@@ -341,7 +438,7 @@
         if(document.getElementById("serunding_"+i).checked) scores[i] += mysteryItems.serunding;
       }
 
-      /* Build ranking */
+      // Ranking table
       let result = [];
       for(let i=1; i<=tables; i++){
         result.push({ table:i, score:scores[i] });
@@ -367,6 +464,18 @@
         table.appendChild(row);
       });
     }
+
+    /* Debounce helper: reduces lag while typing */
+    function debounce(fn, delay){
+      let t;
+      return (...args) => {
+        clearTimeout(t);
+        t = setTimeout(() => fn.apply(null, args), delay);
+      };
+    }
+
+    // Initial compute
+    calculate();
   </script>
 </body>
 </html>
