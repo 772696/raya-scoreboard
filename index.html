@@ -1,0 +1,356 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Raya Game Scoreboard</title>
+
+
+<style>
+
+body{
+font-family:Arial;
+background:linear-gradient(135deg,#0f5f2d,#1c8c4c);
+color:white;
+text-align:center;
+padding:15px;
+}
+
+h1{
+color:#ffd700;
+}
+
+.section{
+background:white;
+color:#222; /* FIX: make section text dark */
+padding:15px;
+margin:15px auto;
+border-radius:10px;
+max-width:1000px;
+box-shadow:0 5px 15px rgba(0,0,0,0.2);
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:10px;
+color:#222; /* FIX: table text dark */
+}
+
+th{
+background:#1c8c4c;
+color:white;
+}
+
+td{
+color:#222; /* FIX: ensure table content visible */
+}
+
+td,th{
+border:1px solid #ccc;
+padding:6px;
+font-size:14px;
+}
+
+input,select{
+width:100%;
+padding:6px;
+color:#222; /* FIX: input text visible */
+background:white;
+border:1px solid #ccc;
+}
+
+.rank-grid{
+display:grid;
+grid-template-columns:repeat(4,1fr);
+gap:6px;
+}
+
+button{
+background:#ffd700;
+border:none;
+padding:14px 30px;
+font-size:18px;
+border-radius:10px;
+cursor:pointer;
+font-weight:bold;
+color:#222;
+}
+
+.gold{
+background:#ffd700;
+color:#000;
+}
+
+.silver{
+background:#dcdcdc;
+color:#000;
+}
+
+.bronze{
+background:#cd7f32;
+color:white;
+}
+
+</style>
+
+
+
+</head>
+
+<body>
+
+<h1>🎉 Hari Raya Game Scoreboard</h1>
+
+<div class="section">
+
+<h2>Game 1 – Perlumbaan Anyam Ketupat</h2>
+
+<div id="ketupatGame" class="rank-grid"></div>
+
+</div>
+
+<div class="section">
+
+<h2>Game 2 – Raya Scrabble</h2>
+
+<table id="scrabbleTable">
+
+<tr>
+<th>Table</th>
+<th>Word</th>
+<th>Score</th>
+</tr>
+
+</table>
+
+</div>
+
+<div class="section">
+
+<h2>Game 3 – Kotak Misteri Raya</h2>
+
+<table id="mysteryTable">
+
+<tr>
+<th>Table</th>
+<th>Lemang (100)</th>
+<th>Kuih Raya (50)</th>
+<th>Ketupat (200)</th>
+<th>Duit Raya (80)</th>
+<th>Serunding (120)</th>
+</tr>
+
+</table>
+
+</div>
+
+<button onclick="calculate()">Calculate Result</button>
+
+<div class="section">
+
+<h2>🏆 Overall Ranking</h2>
+
+<table id="resultTable">
+
+<tr>
+<th>Rank</th>
+<th>Table</th>
+<th>Score</th>
+</tr>
+
+</table>
+
+</div>
+
+<script>
+
+const tables=16
+
+const allowedLetters="SELAMATHARIRAYAAIDILFITRI"
+
+const dictionary=[
+"hari","raya","fitri","selamat","air","mata","lama","tali",
+"tari","matahari","rahmat","rahim","ramai","lima","tiram",
+"mari","sama","sari","arti","litar","malam","salam"
+]
+
+const mysteryItems={
+lemang:100,
+kuih:50,
+ketupat:200,
+duit:80,
+serunding:120
+}
+
+function createKetupat(){
+
+const div=document.getElementById("ketupatGame")
+
+for(let i=1;i<=tables;i++){
+
+let box=document.createElement("div")
+
+box.innerHTML=`
+<label>Rank ${i}</label>
+<select id="rank_${i}">
+${[...Array(16).keys()].map(x=>`<option value="${x+1}">Table ${x+1}</option>`).join("")}
+</select>
+`
+
+div.appendChild(box)
+
+}
+
+}
+
+createKetupat()
+
+function createScrabble(){
+
+const table=document.getElementById("scrabbleTable")
+
+for(let i=1;i<=tables;i++){
+
+let row=document.createElement("tr")
+
+row.innerHTML=`
+<td>Table ${i}</td>
+<td><input id="word_${i}" placeholder="Malay word"></td>
+<td id="wordScore_${i}">0</td>
+`
+
+table.appendChild(row)
+
+}
+
+}
+
+createScrabble()
+
+function createMystery(){
+
+const table=document.getElementById("mysteryTable")
+
+for(let i=1;i<=tables;i++){
+
+let row=document.createElement("tr")
+
+row.innerHTML=`
+<td>Table ${i}</td>
+<td><input type="checkbox" id="lemang_${i}"></td>
+<td><input type="checkbox" id="kuih_${i}"></td>
+<td><input type="checkbox" id="ketupat_${i}"></td>
+<td><input type="checkbox" id="duit_${i}"></td>
+<td><input type="checkbox" id="serunding_${i}"></td>
+`
+
+table.appendChild(row)
+
+}
+
+}
+
+createMystery()
+
+function validLetters(word){
+
+word=word.toUpperCase()
+
+for(let c of word){
+
+if(!allowedLetters.includes(c)) return false
+
+}
+
+return true
+
+}
+
+function calculate(){
+
+let scores={}
+
+for(let i=1;i<=tables;i++) scores[i]=0
+
+for(let rank=1;rank<=tables;rank++){
+
+let table=document.getElementById("rank_"+rank).value
+
+scores[table]+=17-rank
+
+}
+
+for(let i=1;i<=tables;i++){
+
+let word=document.getElementById("word_"+i).value.toLowerCase().trim()
+
+let score=0
+
+if(dictionary.includes(word) && validLetters(word)){
+
+score=word.length
+
+}
+
+document.getElementById("wordScore_"+i).innerText=score
+
+scores[i]+=score
+
+}
+
+for(let i=1;i<=tables;i++){
+
+if(document.getElementById("lemang_"+i).checked) scores[i]+=100
+if(document.getElementById("kuih_"+i).checked) scores[i]+=50
+if(document.getElementById("ketupat_"+i).checked) scores[i]+=200
+if(document.getElementById("duit_"+i).checked) scores[i]+=80
+if(document.getElementById("serunding_"+i).checked) scores[i]+=120
+
+}
+
+let result=[]
+
+for(let i=1;i<=tables;i++){
+
+result.push({table:i,score:scores[i]})
+
+}
+
+result.sort((a,b)=>b.score-a.score)
+
+let table=document.getElementById("resultTable")
+
+table.innerHTML="<tr><th>Rank</th><th>Table</th><th>Score</th></tr>"
+
+result.forEach((r,i)=>{
+
+let className=""
+
+if(i==0) className="gold"
+if(i==1) className="silver"
+if(i==2) className="bronze"
+
+let row=document.createElement("tr")
+
+row.className=className
+
+row.innerHTML=`
+<td>${i+1}</td>
+<td>Table ${r.table}</td>
+<td>${r.score}</td>
+`
+
+table.appendChild(row)
+
+})
+
+}
+
+</script>
+
+</body>
+
+</html>
